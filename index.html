@@ -14,9 +14,10 @@
 body{margin:0;background:#101612;color:#e7efe8;font:16px/1.45 -apple-system,BlinkMacSystemFont,sans-serif}
 main{max-width:640px;margin:0 auto;padding:16px 16px 48px}
 h1{font-size:22px;margin:0}
+h2{font-size:16px;margin:0 0 8px}
 .sub{color:#93a89b;font-size:12px;letter-spacing:.08em;text-transform:uppercase}
 nav{display:flex;gap:8px;overflow:auto;margin:14px 0}
-button,label.btn{min-height:44px;border-radius:999px;border:1px solid #314139;background:#18211c;color:#e7efe8;padding:0 14px;font:inherit}
+button,label.btn{min-height:44px;border-radius:999px;border:1px solid #314139;background:#18211c;color:#e7efe8;padding:0 14px;font:inherit;white-space:nowrap}
 button.on{background:#e0b04a;color:#1a1406;border-color:#e0b04a;font-weight:650}
 label.btn{display:flex;align-items:center;justify-content:center;background:#e0b04a;color:#1a1406;font-weight:650}
 form,section{background:#18211c;border:1px solid #314139;border-radius:16px;padding:14px;margin:0 0 12px}
@@ -26,11 +27,13 @@ textarea{min-height:72px}
 .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .wide{width:100%;border-radius:12px;background:#e0b04a;color:#1a1406;font-weight:700;border:0}
 .metric{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #314139;padding:10px 0}
-.metric b{font-variant-numeric:tabular-nums}
+.metric b{font-variant-numeric:tabular-nums;text-align:right}
 table{width:100%;border-collapse:collapse;font-size:14px}
 td{border-top:1px solid #314139;padding:8px 6px 8px 0;vertical-align:top}
 .muted{color:#93a89b;font-size:12px}
 .err{color:#d36b5a}
+.bar{height:8px;background:#314139;border-radius:99px;margin:4px 0 10px}
+.bar i{display:block;height:8px;background:#e0b04a;border-radius:99px}
 </style>
 </head>
 <body>
@@ -42,35 +45,81 @@ td{border-top:1px solid #314139;padding:8px 6px 8px 0;vertical-align:top}
 </main>
 <script>
 const KEY="contractTracker_phone";
-const empty=()=>({revision:"phone-1",labor:[],expenses:[],setup:{retainer:0,start:"2026-08-11",mileRate:0.76,withhold:0,priorTax:0,kids:0,gsWages:0,guardWages:0,va:0,autoBackup:false}});
+const CATS=["Supplies","Maintenance","Travel","Office","Professional Fees","Other"];
+const empty=()=>({revision:"phone-2",labor:[],expenses:[],setup:{retainer:0,start:"2026-08-11",mileRate:0.76,withhold:0,priorTax:0,kids:0,gsWages:0,guardWages:0,va:0,autoBackup:false}});
 let state=load();
 let tab="dash";
 function load(){try{const raw=localStorage.getItem(KEY);if(!raw)return empty();const p=JSON.parse(raw);if(!Array.isArray(p.labor)||!Array.isArray(p.expenses))return empty();return Object.assign(empty(),p,{setup:Object.assign(empty().setup,p.setup)});}catch(e){return empty();}}
 function save(){localStorage.setItem(KEY,JSON.stringify(state));}
-function money(n){return n.toLocaleString("en-US",{style:"currency",currency:"USD"})}
+function money(n){return Number(n||0).toLocaleString("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0});}
+function money2(n){return Number(n||0).toLocaleString("en-US",{style:"currency",currency:"USD",minimumFractionDigits:2,maximumFractionDigits:2});}
 function rate(date){return date<"2026-07-01"?0.725:Number(state.setup.mileRate)||0.76}
-function hours(){return state.labor.reduce((s,r)=>s+(Number(r.hours)||0),0)}
+function snap(){
+  const s=state.setup, year=Number(String(s.start).slice(0,4))||2026;
+  const start=Date.parse(s.start+"T00:00:00Z");
+  const yearEnd=Date.UTC(year,11,31);
+  const now=new Date();
+  const asOf=Math.min(Date.UTC(now.getFullYear(),now.getMonth(),now.getDate()),yearEnd);
+  const labor=state.labor.filter(r=>String(r.date).startsWith(String(year)));
+  const hours=labor.reduce((a,r)=>a+(+r.hours||0),0);
+  const miles=labor.reduce((a,r)=>a+(+r.miles||0)*rate(r.date),0);
+  const exp=state.expenses.filter(r=>String(r.date).startsWith(String(year))&&r.reimb!=="Yes").reduce((a,r)=>a+(+r.amount||0),0);
+  const months=Math.max(0,12-new Date(start).getUTCMonth());
+  const accrued=(+s.retainer||0)*months;
+  const cash=(+s.retainer||0)*Math.max(0,months-1);
+  const span=Math.max(1,(yearEnd-start)/86400000+1);
+  const elapsed=Math.max(1,(asOf-start)/86400000+1);
+  const est=hours>0?(hours/elapsed)*span:0;
+  const net=cash-exp-miles;
+  const seEarn=Math.max(0,net)*0.9235;
+  const w2=(+s.gsWages||0)+(+s.guardWages||0);
+  const ssRoom=Math.max(0,184500-w2);
+  const seTax=Math.min(seEarn,ssRoom)*0.124+seEarn*0.029+Math.max(0,w2+seEarn-250000)*0.009;
+  const half=seTax/2;
+  const taxable=Math.max(0,Math.max(0,w2+net-half-32200)-Math.max(0,net-half)*0.2);
+  let income=0;
+  if(taxable>24800) income=taxable<=100800?2480+(taxable-24800)*0.12:2480+9120+(taxable-100800)*0.22;
+  else income=taxable*0.1;
+  const incomeAfter=Math.max(0,income-(+s.kids||0)*2200);
+  const total=incomeAfter+seTax;
+  const extra=Math.max(0,Math.min(total,+s.priorTax||0)-(+s.withhold||0));
+  const fica=w2*0.0765;
+  const gross=cash+w2+(+s.va||0);
+  return {hours,est,cash,accrued,exp,miles,net,seTax,incomeAfter,total,extra,gross,take:gross-exp-miles-fica-total,fica,perHour:est?accrued/est:0,after:est?(accrued-exp-miles)/est:0,week:est/(span/7)};
+}
+function trend(){
+  const m={};
+  state.labor.forEach(r=>{const k=String(r.date).slice(0,7);m[k]=(m[k]||0)+(+r.hours||0);});
+  const ret=+state.setup.retainer||0;
+  return Object.keys(m).sort().map(k=>({k,h:m[k],rate:m[k]?ret/m[k]:0}));
+}
+function metric(label,value){return `<div class="metric"><span>${label}</span><b>${value}</b></div>`;}
 function render(){
   const latest=state.labor.reduce((m,r)=>r.date>m?r.date:m,"");
-  document.getElementById("status").textContent=state.labor.length?("Latest "+latest+" · "+state.labor.length+" entries"):"No entries yet";
-  const tabs=[["dash","Dashboard"],["add","Add"],["log","Log"],["import","Import"]];
+  document.getElementById("status").textContent=state.labor.length?("Latest "+latest+" \u00b7 "+state.labor.length+" labor"):"No entries yet";
+  const tabs=[["dash","Dash"],["add","Add"],["log","Log"],["trend","Trend"],["costs","Costs"],["tax","Tax"],["file","File"]];
   document.getElementById("nav").innerHTML=tabs.map(([id,label])=>`<button type="button" data-tab="${id}" class="${tab===id?"on":""}">${label}</button>`).join("");
   document.getElementById("nav").onclick=e=>{const b=e.target.closest("button");if(!b)return;tab=b.dataset.tab;render();};
   const view=document.getElementById("view");
-  if(tab==="dash") view.innerHTML=dash();
-  if(tab==="add") view.innerHTML=addForm();
-  if(tab==="log") view.innerHTML=logTable();
-  if(tab==="import") view.innerHTML=importPanel();
+  const pages={dash:dash,add:addForm,log:logTable,trend:trendView,costs:costsView,tax:taxView,file:fileView};
+  view.innerHTML=pages[tab]();
   bind();
 }
 function dash(){
-  const h=hours();
-  const miles=state.labor.reduce((s,r)=>s+(Number(r.miles)||0)*rate(r.date),0);
-  const exp=state.expenses.filter(r=>r.reimb!=="Yes").reduce((s,r)=>s+(Number(r.amount)||0),0);
-  return `<section><div class="metric"><span>Hours logged</span><b>${h.toFixed(1)}</b></div>
-  <div class="metric"><span>Deductible expenses</span><b>${money(exp)}</b></div>
-  <div class="metric"><span>Mileage deduction</span><b>${money(miles)}</b></div>
-  <p class="muted">Entries stay on this phone. Export a JSON after you add something.</p></section>`;
+  const v=snap();
+  const emptyNote=state.labor.length?"":`<p class="muted">Import the JSON on File to load the workbook. Until then these stay at zero.</p>`;
+  return `<section><h2>This year</h2>${emptyNote}
+  ${metric("Hours logged",v.hours.toFixed(1))}
+  ${metric("Est. hours by year-end",v.est.toFixed(1))}
+  ${metric("Est. hours / week",v.week.toFixed(1))}
+  ${metric("Gross $ / hour",v.est?money2(v.perHour):"\u2014")}
+  ${metric("After costs $ / hour",v.est?money2(v.after):"\u2014")}
+  ${metric("Cash contract",money(v.cash))}
+  ${metric("Gross income",money(v.gross))}
+  ${metric("Est. take-home",money(v.take))}
+  ${metric("Federal tax",money2(v.total))}
+  ${metric("Extra estimates",money(v.extra))}
+  </section>`;
 }
 function addForm(){
   const today=new Date().toISOString().slice(0,10);
@@ -85,16 +134,63 @@ function addForm(){
 }
 function logTable(){
   const rows=[...state.labor].sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
-  if(!rows.length) return `<section><p>No labor yet.</p></section>`;
-  return `<section><h2>All labor · ${rows.length}</h2><table>${rows.map(r=>`<tr><td>${r.date.slice(5)}</td><td>${escape(r.work)}<div class="muted">${r.start||""}${r.end?" → "+escape(r.end):""}</div></td><td>${r.hours||""}</td></tr>`).join("")}</table></section>`;
+  if(!rows.length) return `<section><p>No labor yet. Import the JSON on File, or add a row.</p></section>`;
+  return `<section><h2>All labor \u00b7 ${rows.length}</h2><table>${rows.map(r=>`<tr><td>${r.date.slice(5)}</td><td>${esc(r.work)}<div class="muted">${esc(r.start||"")}${r.end?" \u2192 "+esc(r.end):""}</div></td><td>${r.hours||""}</td></tr>`).join("")}</table></section>`;
 }
-function importPanel(){
-  return `<section><h2>Import JSON</h2><p class="muted">Choose the tracker JSON. This replaces what is on this phone. It does not read the Excel file.</p>
+function trendView(){
+  const rows=trend();
+  if(!rows.length) return `<section><p>No hours yet, so there is no hourly trend.</p></section>`;
+  const max=Math.max(...rows.map(r=>r.rate),1);
+  return `<section><h2>Gross $ / hour by month</h2><p class="muted">Monthly retainer divided by hours logged that month. Same idea as the Excel chart.</p>
+  ${rows.map(r=>`<div class="metric"><span>${r.k}</span><b>${r.h.toFixed(1)} h \u00b7 ${money2(r.rate)}/h</b></div><div class="bar"><i style="width:${Math.max(4,r.rate/max*100)}%"></i></div>`).join("")}
+  </section>`;
+}
+function costsView(){
+  const today=new Date().toISOString().slice(0,10);
+  const rows=[...state.expenses].sort((a,b)=>b.date.localeCompare(a.date));
+  return `<form id="cost"><h2>Add expense</h2>
+  <label>Date<input name="date" type="date" value="${today}" required></label>
+  <label>Vendor<input name="vendor" required></label>
+  <div class="row"><label>Category<select name="category">${CATS.map(c=>`<option>${c}</option>`).join("")}</select></label>
+  <label>Amount<input name="amount" inputmode="decimal" required></label></div>
+  <label>Description<input name="desc"></label>
+  <label>Reimbursable<select name="reimb"><option value="No">No \u2014 deductible</option><option value="Yes">Yes \u2014 billed to client</option></select></label>
+  <button class="wide" type="submit">Add expense</button></form>
+  <section><h2>Expenses \u00b7 ${rows.length}</h2>${rows.map(r=>`<div class="metric"><span>${esc(r.vendor)}<div class="muted">${r.date} \u00b7 ${esc(r.category)}${r.reimb==="Yes"?" \u00b7 reimbursed":""}</div></span><b>${money2(r.amount)}</b></div>`).join("")||`<p class="muted">None yet.</p>`}</section>`;
+}
+function taxView(){
+  const v=snap();
+  return `<section><h2>2026 federal estimate</h2>
+  ${metric("Deductible expenses",money2(v.exp))}
+  ${metric("Mileage deduction",money2(v.miles))}
+  ${metric("Schedule C net",money(v.net))}
+  ${metric("Self-employment tax",money2(v.seTax))}
+  ${metric("Income tax after CTC",money2(v.incomeAfter))}
+  ${metric("Total federal tax",money2(v.total))}
+  ${metric("W-2 Social Security + Medicare",money(v.fica))}
+  ${metric("Extra estimates",money(v.extra))}
+  <p class="muted">Planning estimate. December retainer is next year's cash. VA is tax-free. Confirm with a tax pro.</p></section>`;
+}
+function fileView(){
+  const s=state.setup;
+  const field=(name,label,step)=>`<label>${label}<input name="${name}" type="number" step="${step||"1"}" value="${s[name]||0}"></label>`;
+  return `<section><h2>Import the workbook</h2><p class="muted">Choose the tracker JSON from Files. This replaces what is on this phone. It does not read the Excel file.</p>
   <label class="btn">Choose JSON<input id="file" type="file" accept="application/json,.json" hidden></label>
   <p id="msg"></p>
-  <button type="button" id="export">Export JSON</button></section>`;
+  <button type="button" id="export">Export JSON</button></section>
+  <form id="setup"><h2>Assumptions</h2><p class="muted">Filled in when you import. Change them here if a number is wrong.</p>
+  ${field("retainer","Monthly retainer")}
+  <label>Contract start<input name="start" type="date" value="${s.start||"2026-08-11"}"></label>
+  ${field("mileRate","Mileage rate, Jul\u2013Dec","0.001")}
+  ${field("withhold","Expected W-2 withholding")}
+  ${field("priorTax","Prior-year tax")}
+  ${field("kids","Children for the credit")}
+  ${field("gsWages","GS wages","0.01")}
+  ${field("guardWages","Guard wages","0.01")}
+  ${field("va","VA compensation","0.01")}
+  <button class="wide" type="submit">Save assumptions</button></form>`;
 }
-function escape(s){return String(s||"").replace(/[&<>"]/g,function(c){if(c==="&")return "&"+"amp;";if(c==="<")return "&"+"lt;";if(c===">")return "&"+"gt;";return "&"+"quot;";});}
+function esc(s){return String(s||"").replace(/[&<>"]/g,function(c){if(c==="&")return "&"+"amp;";if(c==="<")return "&"+"lt;";if(c===">")return "&"+"gt;";return "&"+"quot;";});}
 function bind(){
   const form=document.getElementById("labor");
   if(form) form.onsubmit=e=>{
@@ -103,8 +199,24 @@ function bind(){
     const work=String(f.get("work")||"").trim();
     const date=String(f.get("date")||"");
     if(!date||!work){document.getElementById("err").textContent="Date and work are required.";return;}
-    state.labor.unshift({id:Date.now(),date,work,hours:Number(f.get("hours"))||0,miles:Number(f.get("miles"))||0,start:String(f.get("start")||"").trim(),end:String(f.get("end")||"").trim()});
+    state.labor.unshift({id:Date.now(),date,work,hours:+f.get("hours")||0,miles:+f.get("miles")||0,start:String(f.get("start")||"").trim(),end:String(f.get("end")||"").trim()});
     save(); tab="log"; render();
+  };
+  const cost=document.getElementById("cost");
+  if(cost) cost.onsubmit=e=>{
+    e.preventDefault();
+    const f=new FormData(cost);
+    if(!f.get("vendor")||!+f.get("amount")) return;
+    state.expenses.unshift({id:Date.now(),date:String(f.get("date")),vendor:String(f.get("vendor")).trim(),category:String(f.get("category")),desc:String(f.get("desc")||"").trim(),amount:+f.get("amount"),reimb:String(f.get("reimb"))});
+    save(); render();
+  };
+  const setup=document.getElementById("setup");
+  if(setup) setup.onsubmit=e=>{
+    e.preventDefault();
+    const f=new FormData(setup);
+    ["retainer","mileRate","withhold","priorTax","kids","gsWages","guardWages","va"].forEach(k=>{state.setup[k]=+f.get(k)||0;});
+    state.setup.start=String(f.get("start")||state.setup.start);
+    save(); tab="dash"; render();
   };
   const file=document.getElementById("file");
   if(file) file.onchange=()=>{
@@ -113,9 +225,9 @@ function bind(){
       try{
         const p=JSON.parse(text);
         if(!Array.isArray(p.labor)||!Array.isArray(p.expenses)) throw new Error("bad");
-        state=Object.assign(empty(),p,{revision:"phone-1",setup:Object.assign(empty().setup,p.setup||{})});
+        state=Object.assign(empty(),p,{revision:"phone-2",setup:Object.assign(empty().setup,p.setup||{})});
         save(); tab="dash"; render();
-      }catch(e){document.getElementById("msg").textContent="That file is not a tracker JSON.";}
+      }catch(err){document.getElementById("msg").textContent="That file is not a tracker JSON.";}
     });
   };
   const exp=document.getElementById("export");
