@@ -27,12 +27,12 @@ function invoiceRows(){
 function invoiceText(v){
   const costs=v.lines.length?v.lines.map(e=>"- "+e.date+"  "+e.vendor+"  "+money2(e.amount)+(e.desc?"  "+e.desc:"")).join("\n"):"- none";
   const work=v.labor.length?v.labor.map(r=>"- "+r.date+"  "+(r.hours||0)+"h  "+r.work).join("\n"):"- none";
-  return [v.number+"  "+v.status,"Client: "+v.client,"Period: "+pretty(v.periodStart)+" \u2013 "+pretty(v.periodEnd),"Invoice date: "+v.date,"Due: "+v.due,"Retainer: "+money2(v.retainer),"Reimbursable expenses: "+money2(v.reimb),costs,"Invoice total: "+money2(v.total),"Cash-basis year: "+v.cashYear,"","Work logged this period:",work].join("\n");
+  return [v.number+"  "+v.status,"Client: "+v.client,"Period: "+pretty(v.periodStart)+" – "+pretty(v.periodEnd),"Invoice date: "+v.date,"Due: "+v.due,"Retainer: "+money2(v.retainer),"Reimbursable expenses: "+money2(v.reimb),costs,"Invoice total: "+money2(v.total),"Cash-basis year: "+v.cashYear,"","Work logged this period:",work].join("\n");
 }
 function invoiceView(){
   const rows=invoiceRows();
   return `<section><h2>Monthly invoices</h2><p class="muted">Total is the retainer plus expenses marked reimbursable in that month. Copy one and hand it to Micra.</p>
-  ${rows.map(v=>`<div class="metric"><span><b>${v.number}</b> \u00b7 ${v.status}<div class="muted">${pretty(v.periodStart)} \u2013 ${pretty(v.periodEnd)}</div><div class="muted">Retainer ${money2(v.retainer)} + reimbursed ${money2(v.reimb)}</div></span><b>${money2(v.total)}</b></div>
+  ${rows.map(v=>`<div class="metric"><span><b>${v.number}</b> · ${v.status}<div class="muted">${pretty(v.periodStart)} – ${pretty(v.periodEnd)}</div><div class="muted">Retainer ${money2(v.retainer)} + reimbursed ${money2(v.reimb)}</div></span><b>${money2(v.total)}</b></div>
   <div class="row" style="margin-bottom:12px"><button type="button" data-copy="${v.id}">Copy for Micra</button><button type="button" data-paid="${v.id}">${v.status==="Paid"?"Mark draft":"Mark paid"}</button></div>`).join("")}
   <button type="button" id="nextinv">Add next month</button>
   <p id="copied" class="muted"></p></section>`;
@@ -51,7 +51,7 @@ function trendView(){
   if(!rows.length) return `<section><p>No hours yet, so there is no hourly trend.</p></section>`;
   const max=Math.max(...rows.map(r=>r.rate),1);
   return `<section><h2>Gross $ / hour by month</h2><p class="muted">Monthly retainer divided by hours logged that month. Same idea as the Excel chart.</p>
-  ${rows.map(r=>`<div class="metric"><span>${r.k}</span><b>${r.h.toFixed(1)} h \u00b7 ${money2(r.rate)}/h</b></div><div class="bar"><i style="width:${Math.max(4,r.rate/max*100)}%"></i></div>`).join("")}
+  ${rows.map(r=>`<div class="metric"><span>${r.k}</span><b>${r.h.toFixed(1)} h · ${money2(r.rate)}/h</b></div><div class="bar"><i style="width:${Math.max(4,r.rate/max*100)}%"></i></div>`).join("")}
   </section>`;
 }
 function costsView(){
@@ -63,7 +63,7 @@ function costsView(){
   <div class="row"><label>Category<select name="category">${CATS.map(c=>`<option>${c}</option>`).join("")}</select></label>
   <label>Amount<input name="amount" inputmode="decimal" required></label></div>
   <label>Description<input name="desc"></label>
-  <label>Reimbursable<select name="reimb"><option value="No">No \u2014 deductible</option><option value="Yes">Yes \u2014 billed to client</option></select></label>
+  <label>Reimbursable<select name="reimb"><option value="No">No — deductible</option><option value="Yes">Yes — billed to client</option></select></label>
   <button class="wide" type="submit">Add expense</button></form>
-  <section><h2>Expenses \u00b7 ${rows.length}</h2>${rows.map(r=>`<div class="metric"><span>${esc(r.vendor)}<div class="muted">${r.date} \u00b7 ${esc(r.category)}${r.reimb==="Yes"?" \u00b7 reimbursed":""}</div></span><b>${money2(r.amount)}</b></div>`).join("")||`<p class="muted">None yet.</p>`}</section>`;
+  <section><h2>Expenses · ${rows.length}</h2>${rows.map(r=>`<div class="metric"><span>${esc(r.vendor)}<div class="muted">${r.date} · ${esc(r.category)}${r.reimb==="Yes"?" · reimbursed":""}</div></span><b>${money2(r.amount)}</b></div>`).join("")||`<p class="muted">None yet.</p>`}</section>`;
 }
