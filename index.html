@@ -96,7 +96,7 @@ function trend(){
 function metric(label,value){return `<div class="metric"><span>${label}</span><b>${value}</b></div>`;}
 function render(){
   const latest=state.labor.reduce((m,r)=>r.date>m?r.date:m,"");
-  document.getElementById("status").textContent=state.labor.length?("Latest "+latest+" \u00b7 "+state.labor.length+" labor"):"No entries yet";
+  document.getElementById("status").textContent=state.labor.length?("Latest "+latest+" · "+state.labor.length+" labor"):"No entries yet";
   const tabs=[["dash","Dash"],["add","Add"],["log","Log"],["trend","Trend"],["costs","Costs"],["tax","Tax"],["file","File"]];
   document.getElementById("nav").innerHTML=tabs.map(([id,label])=>`<button type="button" data-tab="${id}" class="${tab===id?"on":""}">${label}</button>`).join("");
   document.getElementById("nav").onclick=e=>{const b=e.target.closest("button");if(!b)return;tab=b.dataset.tab;render();};
@@ -112,8 +112,8 @@ function dash(){
   ${metric("Hours logged",v.hours.toFixed(1))}
   ${metric("Est. hours by year-end",v.est.toFixed(1))}
   ${metric("Est. hours / week",v.week.toFixed(1))}
-  ${metric("Gross $ / hour",v.est?money2(v.perHour):"\u2014")}
-  ${metric("After costs $ / hour",v.est?money2(v.after):"\u2014")}
+  ${metric("Gross $ / hour",v.est?money2(v.perHour):"—")}
+  ${metric("After costs $ / hour",v.est?money2(v.after):"—")}
   ${metric("Cash contract",money(v.cash))}
   ${metric("Gross income",money(v.gross))}
   ${metric("Est. take-home",money(v.take))}
@@ -135,14 +135,14 @@ function addForm(){
 function logTable(){
   const rows=[...state.labor].sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
   if(!rows.length) return `<section><p>No labor yet. Import the JSON on File, or add a row.</p></section>`;
-  return `<section><h2>All labor \u00b7 ${rows.length}</h2><table>${rows.map(r=>`<tr><td>${r.date.slice(5)}</td><td>${esc(r.work)}<div class="muted">${esc(r.start||"")}${r.end?" \u2192 "+esc(r.end):""}</div></td><td>${r.hours||""}</td></tr>`).join("")}</table></section>`;
+  return `<section><h2>All labor · ${rows.length}</h2><table>${rows.map(r=>`<tr><td>${r.date.slice(5)}</td><td>${esc(r.work)}<div class="muted">${esc(r.start||"")}${r.end?" → "+esc(r.end):""}</div></td><td>${r.hours||""}</td></tr>`).join("")}</table></section>`;
 }
 function trendView(){
   const rows=trend();
   if(!rows.length) return `<section><p>No hours yet, so there is no hourly trend.</p></section>`;
   const max=Math.max(...rows.map(r=>r.rate),1);
   return `<section><h2>Gross $ / hour by month</h2><p class="muted">Monthly retainer divided by hours logged that month. Same idea as the Excel chart.</p>
-  ${rows.map(r=>`<div class="metric"><span>${r.k}</span><b>${r.h.toFixed(1)} h \u00b7 ${money2(r.rate)}/h</b></div><div class="bar"><i style="width:${Math.max(4,r.rate/max*100)}%"></i></div>`).join("")}
+  ${rows.map(r=>`<div class="metric"><span>${r.k}</span><b>${r.h.toFixed(1)} h · ${money2(r.rate)}/h</b></div><div class="bar"><i style="width:${Math.max(4,r.rate/max*100)}%"></i></div>`).join("")}
   </section>`;
 }
 function costsView(){
@@ -154,9 +154,9 @@ function costsView(){
   <div class="row"><label>Category<select name="category">${CATS.map(c=>`<option>${c}</option>`).join("")}</select></label>
   <label>Amount<input name="amount" inputmode="decimal" required></label></div>
   <label>Description<input name="desc"></label>
-  <label>Reimbursable<select name="reimb"><option value="No">No \u2014 deductible</option><option value="Yes">Yes \u2014 billed to client</option></select></label>
+  <label>Reimbursable<select name="reimb"><option value="No">No — deductible</option><option value="Yes">Yes — billed to client</option></select></label>
   <button class="wide" type="submit">Add expense</button></form>
-  <section><h2>Expenses \u00b7 ${rows.length}</h2>${rows.map(r=>`<div class="metric"><span>${esc(r.vendor)}<div class="muted">${r.date} \u00b7 ${esc(r.category)}${r.reimb==="Yes"?" \u00b7 reimbursed":""}</div></span><b>${money2(r.amount)}</b></div>`).join("")||`<p class="muted">None yet.</p>`}</section>`;
+  <section><h2>Expenses · ${rows.length}</h2>${rows.map(r=>`<div class="metric"><span>${esc(r.vendor)}<div class="muted">${r.date} · ${esc(r.category)}${r.reimb==="Yes"?" · reimbursed":""}</div></span><b>${money2(r.amount)}</b></div>`).join("")||`<p class="muted">None yet.</p>`}</section>`;
 }
 function taxView(){
   const v=snap();
@@ -181,7 +181,7 @@ function fileView(){
   <form id="setup"><h2>Assumptions</h2><p class="muted">Filled in when you import. Change them here if a number is wrong.</p>
   ${field("retainer","Monthly retainer")}
   <label>Contract start<input name="start" type="date" value="${s.start||"2026-08-11"}"></label>
-  ${field("mileRate","Mileage rate, Jul\u2013Dec","0.001")}
+  ${field("mileRate","Mileage rate, Jul–Dec","0.001")}
   ${field("withhold","Expected W-2 withholding")}
   ${field("priorTax","Prior-year tax")}
   ${field("kids","Children for the credit")}
