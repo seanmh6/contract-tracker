@@ -1,35 +1,133 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="theme-color" content="#101612" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-title" content="Tracker" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#101612">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tracker">
 <title>Contract Tracker</title>
-<link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-<link rel="manifest" href="./manifest.webmanifest" />
-<link rel="stylesheet" href="./assets/app.css" />
+<style>
+:root{color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:#101612;color:#e7efe8;font:16px/1.45 -apple-system,BlinkMacSystemFont,sans-serif}
+main{max-width:640px;margin:0 auto;padding:16px 16px 48px}
+h1{font-size:22px;margin:0}
+.sub{color:#93a89b;font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+nav{display:flex;gap:8px;overflow:auto;margin:14px 0}
+button,label.btn{min-height:44px;border-radius:999px;border:1px solid #314139;background:#18211c;color:#e7efe8;padding:0 14px;font:inherit}
+button.on{background:#e0b04a;color:#1a1406;border-color:#e0b04a;font-weight:650}
+label.btn{display:flex;align-items:center;justify-content:center;background:#e0b04a;color:#1a1406;font-weight:650}
+form,section{background:#18211c;border:1px solid #314139;border-radius:16px;padding:14px;margin:0 0 12px}
+label{display:block;margin:0 0 10px;font-size:12px;color:#93a89b;text-transform:uppercase;letter-spacing:.04em}
+input,select,textarea{width:100%;min-height:44px;margin-top:4px;border-radius:10px;border:1px solid #314139;background:#101612;color:#e7efe8;padding:8px 10px;font:inherit}
+textarea{min-height:72px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.wide{width:100%;border-radius:12px;background:#e0b04a;color:#1a1406;font-weight:700;border:0}
+.metric{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #314139;padding:10px 0}
+.metric b{font-variant-numeric:tabular-nums}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td{border-top:1px solid #314139;padding:8px 6px 8px 0;vertical-align:top}
+.muted{color:#93a89b;font-size:12px}
+.err{color:#d36b5a}
+</style>
 </head>
 <body>
-<div id="root"></div>
+<main>
+<p class="sub" id="status">No entries yet</p>
+<h1>Contract Tracker</h1>
+<nav id="nav"></nav>
+<div id="view"></div>
+</main>
 <script>
-(async function () {
-  var names = ["part00.txt","part01.txt","part02.txt","part03.txt","part04.txt","part05.txt","part06.txt","part07.txt","part08.txt","part09.txt","part10.txt","part11.txt","part12.txt","part13.txt","part14.txt","part15.txt","part16.txt","part17.txt","part18.txt","part19.txt"];
-  var parts = await Promise.all(names.map(function (name) {
-    return fetch("./assets/" + name).then(function (response) {
-      if (!response.ok) throw new Error(name);
-      return response.text();
+const KEY="contractTracker_phone";
+const empty=()=>({revision:"phone-1",labor:[],expenses:[],setup:{retainer:0,start:"2026-08-11",mileRate:0.76,withhold:0,priorTax:0,kids:0,gsWages:0,guardWages:0,va:0,autoBackup:false}});
+let state=load();
+let tab="dash";
+function load(){try{const raw=localStorage.getItem(KEY);if(!raw)return empty();const p=JSON.parse(raw);if(!Array.isArray(p.labor)||!Array.isArray(p.expenses))return empty();return Object.assign(empty(),p,{setup:Object.assign(empty().setup,p.setup)});}catch(e){return empty();}}
+function save(){localStorage.setItem(KEY,JSON.stringify(state));}
+function money(n){return n.toLocaleString("en-US",{style:"currency",currency:"USD"})}
+function rate(date){return date<"2026-07-01"?0.725:Number(state.setup.mileRate)||0.76}
+function hours(){return state.labor.reduce((s,r)=>s+(Number(r.hours)||0),0)}
+function render(){
+  const latest=state.labor.reduce((m,r)=>r.date>m?r.date:m,"");
+  document.getElementById("status").textContent=state.labor.length?("Latest "+latest+" · "+state.labor.length+" entries"):"No entries yet";
+  const tabs=[["dash","Dashboard"],["add","Add"],["log","Log"],["import","Import"]];
+  document.getElementById("nav").innerHTML=tabs.map(([id,label])=>`<button type="button" data-tab="${id}" class="${tab===id?"on":""}">${label}</button>`).join("");
+  document.getElementById("nav").onclick=e=>{const b=e.target.closest("button");if(!b)return;tab=b.dataset.tab;render();};
+  const view=document.getElementById("view");
+  if(tab==="dash") view.innerHTML=dash();
+  if(tab==="add") view.innerHTML=addForm();
+  if(tab==="log") view.innerHTML=logTable();
+  if(tab==="import") view.innerHTML=importPanel();
+  bind();
+}
+function dash(){
+  const h=hours();
+  const miles=state.labor.reduce((s,r)=>s+(Number(r.miles)||0)*rate(r.date),0);
+  const exp=state.expenses.filter(r=>r.reimb!=="Yes").reduce((s,r)=>s+(Number(r.amount)||0),0);
+  return `<section><div class="metric"><span>Hours logged</span><b>${h.toFixed(1)}</b></div>
+  <div class="metric"><span>Deductible expenses</span><b>${money(exp)}</b></div>
+  <div class="metric"><span>Mileage deduction</span><b>${money(miles)}</b></div>
+  <p class="muted">Entries stay on this phone. Export a JSON after you add something.</p></section>`;
+}
+function addForm(){
+  const today=new Date().toISOString().slice(0,10);
+  return `<form id="labor"><h2>Add labor</h2>
+  <label>Date<input name="date" type="date" value="${today}" required></label>
+  <label>Work<textarea name="work" required placeholder="What you did"></textarea></label>
+  <div class="row"><label>Hours<input name="hours" inputmode="decimal" placeholder="0.0"></label>
+  <label>Miles<input name="miles" inputmode="decimal" placeholder="0"></label></div>
+  <div class="row"><label>Start<input name="start"></label><label>End<input name="end"></label></div>
+  <p class="err" id="err"></p>
+  <button class="wide" type="submit">Add entry</button></form>`;
+}
+function logTable(){
+  const rows=[...state.labor].sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
+  if(!rows.length) return `<section><p>No labor yet.</p></section>`;
+  return `<section><h2>All labor · ${rows.length}</h2><table>${rows.map(r=>`<tr><td>${r.date.slice(5)}</td><td>${escape(r.work)}<div class="muted">${r.start||""}${r.end?" → "+escape(r.end):""}</div></td><td>${r.hours||""}</td></tr>`).join("")}</table></section>`;
+}
+function importPanel(){
+  return `<section><h2>Import JSON</h2><p class="muted">Choose the tracker JSON. This replaces what is on this phone. It does not read the Excel file.</p>
+  <label class="btn">Choose JSON<input id="file" type="file" accept="application/json,.json" hidden></label>
+  <p id="msg"></p>
+  <button type="button" id="export">Export JSON</button></section>`;
+}
+function escape(s){return String(s||"").replace(/[&<>"]/g,function(c){if(c==="&")return "&"+"amp;";if(c==="<")return "&"+"lt;";if(c===">")return "&"+"gt;";return "&"+"quot;";});}
+function bind(){
+  const form=document.getElementById("labor");
+  if(form) form.onsubmit=e=>{
+    e.preventDefault();
+    const f=new FormData(form);
+    const work=String(f.get("work")||"").trim();
+    const date=String(f.get("date")||"");
+    if(!date||!work){document.getElementById("err").textContent="Date and work are required.";return;}
+    state.labor.unshift({id:Date.now(),date,work,hours:Number(f.get("hours"))||0,miles:Number(f.get("miles"))||0,start:String(f.get("start")||"").trim(),end:String(f.get("end")||"").trim()});
+    save(); tab="log"; render();
+  };
+  const file=document.getElementById("file");
+  if(file) file.onchange=()=>{
+    const chosen=file.files&&file.files[0]; if(!chosen) return;
+    chosen.text().then(text=>{
+      try{
+        const p=JSON.parse(text);
+        if(!Array.isArray(p.labor)||!Array.isArray(p.expenses)) throw new Error("bad");
+        state=Object.assign(empty(),p,{revision:"phone-1",setup:Object.assign(empty().setup,p.setup||{})});
+        save(); tab="dash"; render();
+      }catch(e){document.getElementById("msg").textContent="That file is not a tracker JSON.";}
     });
-  }));
-  var script = document.createElement("script");
-  script.text = parts.join("");
-  document.body.appendChild(script);
-})().catch(function () {
-  document.getElementById("root").textContent = "The tracker files did not load. Refresh once.";
-});
+  };
+  const exp=document.getElementById("export");
+  if(exp) exp.onclick=()=>{
+    const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="contract-tracker-"+new Date().toISOString().slice(0,10)+".json";
+    a.click();
+  };
+}
+render();
 </script>
 </body>
 </html>
