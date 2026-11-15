@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#101612" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Tracker" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>Contract Tracker</title>
+<link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="stylesheet" href="./assets/app.css" />
+</head>
+<body>
+<div id="root"></div>
+<script>
+(async function () {
+  var names = ["part00.txt","part01.txt","part02.txt","part03.txt","part04.txt","part05.txt"];
+  var parts = await Promise.all(names.map(function (name) {
+    return fetch("./assets/" + name).then(function (response) {
+      if (!response.ok) throw new Error(name);
+      return response.text();
+    });
+  }));
+  var script = document.createElement("script");
+  script.text = parts.join("");
+  document.body.appendChild(script);
+})().catch(function () {
+  document.getElementById("root").textContent = "The tracker files did not load. Refresh once.";
+});
+</script>
+</body>
+</html>
