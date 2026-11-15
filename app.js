@@ -25,21 +25,29 @@ function snap(){
   const elapsed=Math.max(1,(asOf-start)/86400000+1);
   const est=hours>0?(hours/elapsed)*span:0;
   const net=cash-exp-miles;
-  const seEarn=Math.max(0,net)*0.9235;
   const w2=(+s.gsWages||0)+(+s.guardWages||0);
   const ssRoom=Math.max(0,184500-w2);
+  const kids=(+s.kids||0)*2200;
+  function federal(profit){
+    const seEarn=Math.max(0,profit)*0.9235;
+    const se=Math.min(seEarn,ssRoom)*0.124+seEarn*0.029+Math.max(0,w2+seEarn-250000)*0.009;
+    const half=se/2;
+    const taxable=Math.max(0,Math.max(0,w2+profit-half-32200)-Math.max(0,profit-half)*0.2);
+    let tax=taxable*0.1;
+    if(taxable>100800) tax=2480+9120+(taxable-100800)*0.22;
+    else if(taxable>24800) tax=2480+(taxable-24800)*0.12;
+    return Math.max(0,tax-kids)+se;
+  }
+  const total=federal(net);
+  const seEarn=Math.max(0,net)*0.9235;
   const seTax=Math.min(seEarn,ssRoom)*0.124+seEarn*0.029+Math.max(0,w2+seEarn-250000)*0.009;
-  const half=seTax/2;
-  const taxable=Math.max(0,Math.max(0,w2+net-half-32200)-Math.max(0,net-half)*0.2);
-  let income=0;
-  if(taxable>24800) income=taxable<=100800?2480+(taxable-24800)*0.12:2480+9120+(taxable-100800)*0.22;
-  else income=taxable*0.1;
-  const incomeAfter=Math.max(0,income-(+s.kids||0)*2200);
-  const total=incomeAfter+seTax;
+  const incomeAfter=total-seTax;
+  const contractTax=Math.max(0,total-federal(0));
+  const contractRate=net>0?contractTax/net:0;
   const extra=Math.max(0,Math.min(total,+s.priorTax||0)-(+s.withhold||0));
   const fica=w2*0.0765;
   const gross=cash+w2+(+s.va||0);
-  return {hours,est,cash,accrued,exp,miles,net,seTax,incomeAfter,total,extra,gross,take:gross-exp-miles-fica-total,fica,perHour:est?accrued/est:0,after:est?(accrued-exp-miles)/est:0,week:est/(span/7)};
+  return {hours,est,cash,accrued,exp,miles,net,seTax,incomeAfter,total,extra,gross,take:gross-exp-miles-fica-total,fica,contractTax,contractRate,perHour:est?accrued/est:0,after:est?(accrued-exp-miles)/est:0,week:est/(span/7)};
 }
 function todayIso(){const n=new Date();return n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0")+"-"+String(n.getDate()).padStart(2,"0");}
 function trend(){
