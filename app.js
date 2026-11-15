@@ -1,9 +1,9 @@
 const KEY="contractTracker_phone";
 const CATS=["Supplies","Maintenance","Travel","Office","Professional Fees","Other"];
-const empty=()=>({revision:"phone-2",labor:[],expenses:[],setup:{retainer:0,start:"2026-08-11",mileRate:0.76,withhold:0,priorTax:0,kids:0,gsWages:0,guardWages:0,va:0,autoBackup:false}});
+const empty=()=>({revision:"phone-3",labor:[],expenses:[],invoices:[],setup:{retainer:0,start:"2026-08-11",mileRate:0.76,withhold:0,priorTax:0,kids:0,gsWages:0,guardWages:0,va:0,client:"BT T2 LLC",terms:15,autoBackup:false}});
 let state=load();
 let tab="dash";
-function load(){try{const raw=localStorage.getItem(KEY);if(!raw)return empty();const p=JSON.parse(raw);if(!Array.isArray(p.labor)||!Array.isArray(p.expenses))return empty();return Object.assign(empty(),p,{setup:Object.assign(empty().setup,p.setup)});}catch(e){return empty();}}
+function load(){try{const raw=localStorage.getItem(KEY);if(!raw)return empty();const p=JSON.parse(raw);if(!Array.isArray(p.labor)||!Array.isArray(p.expenses))return empty();const next=Object.assign(empty(),p,{setup:Object.assign(empty().setup,p.setup)});if(!Array.isArray(next.invoices))next.invoices=[];return next;}catch(e){return empty();}}
 function save(){localStorage.setItem(KEY,JSON.stringify(state));}
 function money(n){return Number(n||0).toLocaleString("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0});}
 function money2(n){return Number(n||0).toLocaleString("en-US",{style:"currency",currency:"USD",minimumFractionDigits:2,maximumFractionDigits:2});}
@@ -49,13 +49,14 @@ function trend(){
 }
 function metric(label,value){return `<div class="metric"><span>${label}</span><b>${value}</b></div>`;}
 function render(){
+  ensureInvoices();
   const latest=state.labor.reduce((m,r)=>r.date>m?r.date:m,"");
-  document.getElementById("status").textContent=state.labor.length?("Latest "+latest+" \u00b7 "+state.labor.length+" labor"):"No entries yet";
-  const tabs=[["dash","Dash"],["add","Add"],["log","Log"],["trend","Trend"],["costs","Costs"],["tax","Tax"],["file","File"]];
+  document.getElementById("status").textContent=state.labor.length?("Latest "+latest+" · "+state.labor.length+" labor"):"No entries yet";
+  const tabs=[["dash","Dash"],["add","Add"],["log","Log"],["trend","Trend"],["costs","Costs"],["inv","Inv"],["tax","Tax"],["file","File"]];
   document.getElementById("nav").innerHTML=tabs.map(([id,label])=>`<button type="button" data-tab="${id}" class="${tab===id?"on":""}">${label}</button>`).join("");
   document.getElementById("nav").onclick=e=>{const b=e.target.closest("button");if(!b)return;tab=b.dataset.tab;render();};
   const view=document.getElementById("view");
-  const pages={dash:dash,add:addForm,log:logTable,trend:trendView,costs:costsView,tax:taxView,file:fileView};
+  const pages={dash:dash,add:addForm,log:logTable,trend:trendView,costs:costsView,inv:invoiceView,tax:taxView,file:fileView};
   view.innerHTML=pages[tab]();
   bind();
 }
@@ -66,8 +67,8 @@ function dash(){
   ${metric("Hours logged",v.hours.toFixed(1))}
   ${metric("Est. hours by year-end",v.est.toFixed(1))}
   ${metric("Est. hours / week",v.week.toFixed(1))}
-  ${metric("Gross $ / hour",v.est?money2(v.perHour):"\u2014")}
-  ${metric("After costs $ / hour",v.est?money2(v.after):"\u2014")}
+  ${metric("Gross $ / hour",v.est?money2(v.perHour):"—")}
+  ${metric("After costs $ / hour",v.est?money2(v.after):"—")}
   ${metric("Cash contract",money(v.cash))}
   ${metric("Gross income",money(v.gross))}
   ${metric("Est. take-home",money(v.take))}
@@ -89,5 +90,5 @@ function addForm(){
 function logTable(){
   const rows=[...state.labor].sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
   if(!rows.length) return `<section><p>No labor yet. Import the JSON on File, or add a row.</p></section>`;
-  return `<section><h2>All labor \u00b7 ${rows.length}</h2><table>${rows.map(r=>`<tr><td>${r.date.slice(5)}</td><td>${esc(r.work)}<div class="muted">${esc(r.start||"")}${r.end?" \u2192 "+esc(r.end):""}</div></td><td>${r.hours||""}</td></tr>`).join("")}</table></section>`;
+  return `<section><h2>All labor · ${rows.length}</h2><table>${rows.map(r=>`<tr><td>${r.date.slice(5)}</td><td>${esc(r.work)}<div class="muted">${esc(r.start||"")}${r.end?" → "+esc(r.end):""}</div></td><td>${r.hours||""}</td></tr>`).join("")}</table></section>`;
 }
