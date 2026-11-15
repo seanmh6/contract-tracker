@@ -1,5 +1,25 @@
+function nextEstimate(v){
+  const year=Number(String(state.setup.start).slice(0,4))||2026;
+  const marks=[[year,4,15,0.25],[year,6,15,0.5],[year,9,15,0.75],[year+1,1,15,1]];
+  const today=todayIso();
+  let pick=marks.find(m=>{
+    const d=m[0]+"-"+String(m[1]).padStart(2,"0")+"-"+String(m[2]).padStart(2,"0");
+    return d>=today;
+  })||[year+1,4,15,0.25];
+  const when=new Date(pick[0],pick[1]-1,pick[2]);
+  const wd=when.getDay();
+  if(wd===6) when.setDate(when.getDate()+2);
+  if(wd===0) when.setDate(when.getDate()+1);
+  const iso=when.getFullYear()+"-"+String(when.getMonth()+1).padStart(2,"0")+"-"+String(when.getDate()).padStart(2,"0");
+  const label=when.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+  const amount=Math.max(0,v.extra)*pick[3];
+  return {iso,label,amount};
+}
 function taxView(){
   const v=snap();
+  const q=nextEstimate(v);
+  const known=(+state.setup.priorTax||0)>0;
+  const note=known?(q.amount<=0?"Nothing due. W-2 withholding already covers the safe harbor.":"Assumes no estimates paid yet. This is what is still short of the lower of this year's tax and last year's tax."):"Enter last year's tax on File before trusting this minimum.";
   return `<section><h2>2026 federal estimate</h2>
   ${metric("Deductible expenses",money2(v.exp))}
   ${metric("Mileage deduction",money2(v.miles))}
@@ -8,8 +28,9 @@ function taxView(){
   ${metric("Income tax after CTC",money2(v.incomeAfter))}
   ${metric("Total federal tax",money2(v.total))}
   ${metric("W-2 Social Security + Medicare",money(v.fica))}
-  ${metric("Extra estimates",money(v.extra))}
-  <p class="muted">Planning estimate. December retainer is next year's cash. VA is tax-free. Confirm with a tax pro.</p></section>`;
+  ${metric("Next estimate due",q.label)}
+  ${metric("Minimum to pay",known?money(q.amount):"—")}
+  <p class="muted">${note} Planning estimate. December retainer is next year's cash. VA is tax-free. Confirm with a tax pro.</p></section>`;
 }
 function fileView(){
   const s=state.setup;
