@@ -25,13 +25,13 @@ function taxView(){
   ${metric("Mileage deduction",money2(v.miles))}
   ${metric("Schedule C net",money(v.net))}
   ${metric("Contract tax",money(v.contractTax))}
-  ${metric("Effective rate",v.net>0?(v.contractRate*100).toFixed(1)+"%":"\u2014")}
+  ${metric("Effective rate",v.net>0?(v.contractRate*100).toFixed(1)+"%":"—")}
   ${metric("Self-employment tax",money2(v.seTax))}
   ${metric("Income tax after CTC",money2(v.incomeAfter))}
   ${metric("Total federal tax",money2(v.total))}
   ${metric("W-2 Social Security + Medicare",money(v.fica))}
   ${metric("Next estimate due",q.label)}
-  ${metric("Minimum to pay",known?money(q.amount):"\u2014")}
+  ${metric("Minimum to pay",known?money(q.amount):"—")}
   <p class="muted">${note} Contract tax is the extra federal tax from this year's retainer, after expenses and mileage. The rate is that tax divided by the profit. December retainer is next year's cash. VA is tax-free. Confirm with a tax pro.</p></section>`;
 }
 function fileView(){
@@ -44,7 +44,7 @@ function fileView(){
   <form id="setup"><h2>Assumptions</h2><p class="muted">Filled in when you import. Change them here if a number is wrong.</p>
   ${field("retainer","Monthly retainer")}
   <label>Contract start<input name="start" type="date" value="${s.start||"2026-08-11"}"></label>
-  ${field("mileRate","Mileage rate, Jul\u2013Dec","0.001")}
+  ${field("mileRate","Mileage rate, Jul–Dec","0.001")}
   ${field("withhold","Expected W-2 withholding")}
   ${field("priorTax","Prior-year tax")}
   ${field("kids","Children for the credit")}
