@@ -17,7 +17,7 @@
 <div id="root"></div>
 <script>
 (async function () {
-  var names = ["part00.txt","part01.txt","part02.txt","part03.txt","part04.txt","part05.txt"];
+  var names = ["part00.txt","part01.txt","part02.txt","part03.txt","part04.txt","part05.txt","part06.txt","part07.txt","part08.txt","part09.txt","part10.txt","part11.txt","part12.txt","part13.txt","part14.txt","part15.txt","part16.txt","part17.txt","part18.txt","part19.txt"];
   var parts = await Promise.all(names.map(function (name) {
     return fetch("./assets/" + name).then(function (response) {
       if (!response.ok) throw new Error(name);
