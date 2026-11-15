@@ -41,11 +41,21 @@ function snap(){
   const gross=cash+w2+(+s.va||0);
   return {hours,est,cash,accrued,exp,miles,net,seTax,incomeAfter,total,extra,gross,take:gross-exp-miles-fica-total,fica,perHour:est?accrued/est:0,after:est?(accrued-exp-miles)/est:0,week:est/(span/7)};
 }
+function todayIso(){const n=new Date();return n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0")+"-"+String(n.getDate()).padStart(2,"0");}
 function trend(){
-  const m={};
-  state.labor.forEach(r=>{const k=String(r.date).slice(0,7);m[k]=(m[k]||0)+(+r.hours||0);});
   const ret=+state.setup.retainer||0;
-  return Object.keys(m).sort().map(k=>({k,h:m[k],rate:m[k]?ret/m[k]:0}));
+  const today=todayIso();
+  const hours={};
+  state.labor.forEach(r=>{const k=String(r.date).slice(0,7);hours[k]=(hours[k]||0)+(+r.hours||0);});
+  return Object.keys(hours).sort().map(k=>{
+    const dim=new Date(+k.slice(0,4),+k.slice(5),0).getDate();
+    const end=k+"-"+String(dim).padStart(2,"0");
+    const last=today<k+"-01"?k+"-01":(today<end?today:end);
+    const days=today<k+"-01"?0:+last.slice(8);
+    const accrued=Math.round(ret*days/dim*100)/100;
+    const h=hours[k];
+    return {k,h,accrued,rate:h?accrued/h:0,partial:k===today.slice(0,7),day:+today.slice(8)};
+  });
 }
 function metric(label,value){return `<div class="metric"><span>${label}</span><b>${value}</b></div>`;}
 function render(){
