@@ -19,20 +19,27 @@ function taxView(){
   const v=snap();
   const q=nextEstimate(v);
   const known=(+state.setup.priorTax||0)>0;
-  const note=known?(q.amount<=0?"Nothing due. W-2 withholding already covers the safe harbor.":"Assumes no estimates paid yet. This is what is still short of the lower of this year's tax and last year's tax."):"Enter last year's tax on File before trusting this minimum.";
-  return `<section><h2>2026 federal estimate</h2>
-  ${metric("Deductible expenses",money2(v.exp))}
-  ${metric("Mileage deduction",money2(v.miles))}
-  ${metric("Schedule C net",money(v.net))}
+  const kids=+state.setup.kids||0;
+  const onContract=Math.max(0,v.contractTax-v.seTax);
+  const pay=known?(q.amount<=0?"Nothing extra is due. Tax already taken from the W-2 paycheck covers the minimum.":"This is what is still short if no estimate has been sent yet."):"Enter last year's tax on File before trusting this minimum.";
+  return `<section><h2>The contract</h2>
+  ${metric("Expenses deducted",money2(v.exp))}
+  ${metric("Mileage deducted",money2(v.miles))}
+  ${metric("Profit left",money(v.net))}
+  ${metric("Social Security and Medicare",money2(v.seTax))}
+  ${metric("Income tax on the contract",money(onContract))}
   ${metric("Contract tax",money(v.contractTax))}
-  ${metric("Effective rate",v.net>0?(v.contractRate*100).toFixed(1)+"%":"—")}
-  ${metric("Self-employment tax",money2(v.seTax))}
-  ${metric("Income tax after CTC",money2(v.incomeAfter))}
+  ${metric("Rate on that profit",v.net>0?(v.contractRate*100).toFixed(1)+"%":"—")}
+  <p class="muted">Social Security and Medicare is the self-employment tax. It is only that payroll tax. Contract tax adds the income tax on the same profit. The rate is the contract tax divided by the profit.</p></section>
+  <section><h2>The whole return</h2>
+  ${metric("Income tax after the child credit",money2(v.incomeAfter))}
   ${metric("Total federal tax",money2(v.total))}
-  ${metric("W-2 Social Security + Medicare",money(v.fica))}
-  ${metric("Next estimate due",q.label)}
+  ${metric("W-2 Social Security and Medicare",money(v.fica))}
+  <p class="muted">The child credit is $2,200 for each of ${kids} kids, and it only lowers income tax. Total federal tax is that income tax plus the contract's Social Security and Medicare. The W-2 line was already taken out of the paycheck and is not part of the total.</p></section>
+  <section><h2>Quarterly payment</h2>
+  ${metric("Next due",q.label)}
   ${metric("Minimum to pay",known?money(q.amount):"—")}
-  <p class="muted">${note} Contract tax is the extra federal tax from this year's retainer, after expenses and mileage. The rate is that tax divided by the profit. December retainer is next year's cash. VA is tax-free. Confirm with a tax pro.</p></section>`;
+  <p class="muted">${pay} December's retainer is next year's income. VA pay is not taxed. This is a planning estimate.</p></section>`;
 }
 function fileView(){
   const s=state.setup;
