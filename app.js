@@ -103,7 +103,7 @@ function dash(){
 }
 function addForm(){
   const row=editing==null?null:state.labor.find(r=>String(r.id)===String(editing));
-  const today=new Date().toISOString().slice(0,10);
+  const today=todayIso();
   const v=row||{date:today,work:"",hours:"",miles:"",start:"",end:""};
   return `<form id="labor"><h2>${row?"Edit labor":"Add labor"}</h2>
   <label>Date<input name="date" type="date" value="${v.date||today}" required></label>
