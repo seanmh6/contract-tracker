@@ -42,7 +42,7 @@ function exportJson(){
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
   const a=document.createElement("a");
   a.href=URL.createObjectURL(blob);
-  a.download="contract-tracker-"+new Date().toISOString().slice(0,10)+".json";
+  a.download="contract-tracker-"+todayIso()+".json";
   a.click();
 }
 function askBackup(){if(confirm("Saved on this phone. Download a JSON backup now?")) exportJson();}
@@ -55,7 +55,7 @@ function trendView(){
   </section>`;
 }
 function costsView(){
-  const today=new Date().toISOString().slice(0,10);
+  const today=todayIso();
   const rows=[...state.expenses].sort((a,b)=>b.date.localeCompare(a.date));
   return `<form id="cost"><h2>Add expense</h2>
   <label>Date<input name="date" type="date" value="${today}" required></label>
