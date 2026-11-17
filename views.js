@@ -50,8 +50,8 @@ function trendView(){
   const rows=trend();
   if(!rows.length) return `<section><p>No hours yet, so there is no hourly trend.</p></section>`;
   const max=Math.max(...rows.map(r=>r.rate),1);
-  return `<section><h2>Gross $ / hour by month</h2><p class="muted">Finished months use the full retainer. This month uses only the days elapsed, through today.</p>
-  ${rows.map(r=>`<div class="metric"><span>${r.k}${r.partial?" · through the "+r.day:""}<div class="muted">${money2(r.accrued)} accrued</div></span><b>${r.h.toFixed(1)} h · ${money2(r.rate)}/h</b></div><div class="bar"><i style="width:${Math.max(4,r.rate/max*100)}%"></i></div>`).join("")}
+  return `<section><h2>Take-home $ / hour by month</h2><p class="muted">Retainer minus this year's expenses, mileage, and the total tax on the contract. This month counts only the days so far.</p>
+  ${rows.map(r=>`<div class="metric"><span>${r.k}${r.partial?" · through the "+r.day:""}<div class="muted">${money2(r.home)} take-home</div></span><b>${r.h.toFixed(1)} h · ${money2(r.rate)}/h</b></div><div class="bar"><i style="width:${Math.max(4,r.rate/max*100)}%"></i></div>`).join("")}
   </section>`;
 }
 function costsView(){
