@@ -128,7 +128,7 @@ function bind(){
     const inv=state.invoices.find(r=>String(r.id)===btn.dataset.paid);
     if(!inv) return;
     if(inv.status==="Paid"){inv.status="Draft";inv.paid="";}
-    else {inv.status="Paid";inv.paid=new Date().toISOString().slice(0,10);}
+    else {inv.status="Paid";inv.paid=todayIso();}
     save(); render();
   });
   const next=document.getElementById("nextinv");
