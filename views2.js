@@ -26,11 +26,12 @@ function taxView(){
   ${metric("Expenses deducted",money2(v.exp))}
   ${metric("Mileage deducted",money2(v.miles))}
   ${metric("Profit left",money(v.net))}
-  ${metric("Social Security and Medicare",money2(v.seTax))}
-  ${metric("Income tax on the contract",money(onContract))}
-  ${metric("Contract tax",money(v.contractTax))}
+  ${metric("Social Security",money2(v.ssTax))}
+  ${metric("Medicare",money2(v.medTax))}
+  ${metric("Income tax",money(onContract))}
+  ${metric("Total tax on the contract",money(v.contractTax))}
   ${metric("Rate on that profit",v.net>0?(v.contractRate*100).toFixed(1)+"%":"—")}
-  <p class="muted">Social Security and Medicare is the self-employment tax. It is only that payroll tax. Contract tax adds the income tax on the same profit. The rate is the contract tax divided by the profit.</p></section>
+  <p class="muted">Social Security, Medicare, and income tax are the only taxes on the contract. The total is those three added together. Do not add it on again.${v.addlMed>1?" Medicare includes the extra tax once combined income passes $250,000.":""}</p></section>
   <section><h2>The whole return</h2>
   ${metric("Income tax after the child credit",money2(v.incomeAfter))}
   ${metric("Total federal tax",money2(v.total))}
@@ -71,9 +72,20 @@ function bind(){
     const work=String(f.get("work")||"").trim();
     const date=String(f.get("date")||"");
     if(!date||!work){document.getElementById("err").textContent="Date and work are required.";return;}
-    state.labor.unshift({id:Date.now(),date,work,hours:+f.get("hours")||0,miles:+f.get("miles")||0,start:String(f.get("start")||"").trim(),end:String(f.get("end")||"").trim()});
+    const row={date,work,hours:+f.get("hours")||0,miles:+f.get("miles")||0,start:String(f.get("start")||"").trim(),end:String(f.get("end")||"").trim()};
+    if(editing!=null){
+      const cur=state.labor.find(r=>String(r.id)===String(editing));
+      if(cur) Object.assign(cur,row);
+      editing=null;
+    }else state.labor.unshift(Object.assign({id:Date.now()},row));
     save(); askBackup(); tab="log"; render();
   };
+  const drop=document.getElementById("drop");
+  if(drop) drop.onclick=()=>{
+    state.labor=state.labor.filter(r=>String(r.id)!==String(editing));
+    editing=null; save(); askBackup(); tab="log"; render();
+  };
+  document.querySelectorAll("[data-edit]").forEach(btn=>btn.onclick=()=>{editing=btn.dataset.edit;tab="add";render();});
   const cost=document.getElementById("cost");
   if(cost) cost.onsubmit=e=>{
     e.preventDefault();
