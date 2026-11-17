@@ -3,6 +3,7 @@ const CATS=["Supplies","Maintenance","Travel","Office","Professional Fees","Othe
 const empty=()=>({revision:"phone-3",labor:[],expenses:[],invoices:[],setup:{retainer:0,start:"2026-08-11",mileRate:0.76,withhold:0,priorTax:0,kids:0,gsWages:0,guardWages:0,va:0,client:"BT T2 LLC",terms:15,autoBackup:false}});
 let state=load();
 let tab="dash";
+let editing=null;
 function load(){try{const raw=localStorage.getItem(KEY);if(!raw)return empty();const p=JSON.parse(raw);if(!Array.isArray(p.labor)||!Array.isArray(p.expenses))return empty();const next=Object.assign(empty(),p,{setup:Object.assign(empty().setup,p.setup)});if(!Array.isArray(next.invoices))next.invoices=[];return next;}catch(e){return empty();}}
 function save(){localStorage.setItem(KEY,JSON.stringify(state));}
 function money(n){return Number(n||0).toLocaleString("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0});}
@@ -40,18 +41,23 @@ function snap(){
   }
   const total=federal(net);
   const seEarn=Math.max(0,net)*0.9235;
-  const seTax=Math.min(seEarn,ssRoom)*0.124+seEarn*0.029+Math.max(0,w2+seEarn-250000)*0.009;
+  const ssTax=Math.min(seEarn,ssRoom)*0.124;
+  const addlMed=Math.max(0,w2+seEarn-250000)*0.009;
+  const medTax=seEarn*0.029+addlMed;
+  const seTax=ssTax+medTax;
   const incomeAfter=total-seTax;
   const contractTax=Math.max(0,total-federal(0));
   const contractRate=net>0?contractTax/net:0;
+  const keep=cash>0?(cash-exp-miles-contractTax)/cash:0;
   const extra=Math.max(0,Math.min(total,+s.priorTax||0)-(+s.withhold||0));
   const fica=w2*0.0765;
   const gross=cash+w2+(+s.va||0);
-  return {hours,est,cash,accrued,exp,miles,net,seTax,incomeAfter,total,extra,gross,take:gross-exp-miles-fica-total,fica,contractTax,contractRate,perHour:est?accrued/est:0,after:est?(accrued-exp-miles)/est:0,week:est/(span/7)};
+  return {hours,est,cash,accrued,exp,miles,net,seTax,ssTax,medTax,addlMed,incomeAfter,total,extra,gross,take:gross-exp-miles-fica-total,fica,contractTax,contractRate,keep,perHour:est?accrued/est:0,after:est?(accrued-exp-miles)/est:0,takeHour:est?accrued*keep/est:0,week:est/(span/7)};
 }
 function todayIso(){const n=new Date();return n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0")+"-"+String(n.getDate()).padStart(2,"0");}
 function trend(){
   const ret=+state.setup.retainer||0;
+  const keep=snap().keep;
   const today=todayIso();
   const hours={};
   state.labor.forEach(r=>{const k=String(r.date).slice(0,7);hours[k]=(hours[k]||0)+(+r.hours||0);});
@@ -61,8 +67,9 @@ function trend(){
     const last=today<k+"-01"?k+"-01":(today<end?today:end);
     const days=today<k+"-01"?0:+last.slice(8);
     const accrued=Math.round(ret*days/dim*100)/100;
+    const home=Math.round(accrued*keep*100)/100;
     const h=hours[k];
-    return {k,h,accrued,rate:h?accrued/h:0,partial:k===today.slice(0,7),day:+today.slice(8)};
+    return {k,h,home,rate:h?home/h:0,partial:k===today.slice(0,7),day:+today.slice(8)};
   });
 }
 function metric(label,value){return `<div class="metric"><span>${label}</span><b>${value}</b></div>`;}
@@ -72,7 +79,7 @@ function render(){
   document.getElementById("status").textContent=state.labor.length?("Latest "+latest+" · "+state.labor.length+" labor"):"No entries yet";
   const tabs=[["dash","Dash"],["add","Add"],["log","Log"],["trend","Trend"],["costs","Costs"],["inv","Inv"],["tax","Tax"],["file","File"]];
   document.getElementById("nav").innerHTML=tabs.map(([id,label])=>`<button type="button" data-tab="${id}" class="${tab===id?"on":""}">${label}</button>`).join("");
-  document.getElementById("nav").onclick=e=>{const b=e.target.closest("button");if(!b)return;tab=b.dataset.tab;render();};
+  document.getElementById("nav").onclick=e=>{const b=e.target.closest("button");if(!b)return;if(b.dataset.tab==="add")editing=null;tab=b.dataset.tab;render();};
   const view=document.getElementById("view");
   const pages={dash:dash,add:addForm,log:logTable,trend:trendView,costs:costsView,inv:invoiceView,tax:taxView,file:fileView};
   view.innerHTML=pages[tab]();
@@ -86,7 +93,7 @@ function dash(){
   ${metric("Est. hours by year-end",v.est.toFixed(1))}
   ${metric("Est. hours / week",v.week.toFixed(1))}
   ${metric("Gross $ / hour",v.est?money2(v.perHour):"—")}
-  ${metric("After costs $ / hour",v.est?money2(v.after):"—")}
+  ${metric("Take-home $ / hour",v.est?money2(v.takeHour):"—")}
   ${metric("Cash contract",money(v.cash))}
   ${metric("Gross income",money(v.gross))}
   ${metric("Est. take-home",money(v.take))}
@@ -95,18 +102,21 @@ function dash(){
   </section>`;
 }
 function addForm(){
+  const row=editing==null?null:state.labor.find(r=>String(r.id)===String(editing));
   const today=new Date().toISOString().slice(0,10);
-  return `<form id="labor"><h2>Add labor</h2>
-  <label>Date<input name="date" type="date" value="${today}" required></label>
-  <label>Work<textarea name="work" required placeholder="What you did"></textarea></label>
-  <div class="row"><label>Hours<input name="hours" inputmode="decimal" placeholder="0.0"></label>
-  <label>Miles<input name="miles" inputmode="decimal" placeholder="0"></label></div>
-  <div class="row"><label>Start<input name="start"></label><label>End<input name="end"></label></div>
+  const v=row||{date:today,work:"",hours:"",miles:"",start:"",end:""};
+  return `<form id="labor"><h2>${row?"Edit labor":"Add labor"}</h2>
+  <label>Date<input name="date" type="date" value="${v.date||today}" required></label>
+  <label>Work<textarea name="work" required placeholder="What you did">${esc(v.work||"")}</textarea></label>
+  <div class="row"><label>Hours<input name="hours" inputmode="decimal" placeholder="0.0" value="${v.hours}"></label>
+  <label>Miles<input name="miles" inputmode="decimal" placeholder="0" value="${v.miles}"></label></div>
+  <div class="row"><label>Start<input name="start" value="${esc(v.start||"")}"></label><label>End<input name="end" value="${esc(v.end||"")}"></label></div>
   <p class="err" id="err"></p>
-  <button class="wide" type="submit">Add entry</button></form>`;
+  <button class="wide" type="submit">${row?"Save changes":"Add entry"}</button>
+  ${row?`<button type="button" id="drop">Delete entry</button>`:""}</form>`;
 }
 function logTable(){
   const rows=[...state.labor].sort((a,b)=>b.date.localeCompare(a.date)||b.id-a.id);
   if(!rows.length) return `<section><p>No labor yet. Import the JSON on File, or add a row.</p></section>`;
-  return `<section><h2>All labor · ${rows.length}</h2><table>${rows.map(r=>`<tr><td>${r.date.slice(5)}</td><td>${esc(r.work)}<div class="muted">${esc(r.start||"")}${r.end?" → "+esc(r.end):""}</div></td><td>${r.hours||""}</td></tr>`).join("")}</table></section>`;
+  return `<section><h2>All labor · ${rows.length}</h2><table>${rows.map(r=>`<tr><td>${r.date.slice(5)}</td><td>${esc(r.work)}<div class="muted">${esc(r.start||"")}${r.end?" → "+esc(r.end):""}</div></td><td>${r.hours||""}</td><td><button type="button" data-edit="${r.id}">Edit</button></td></tr>`).join("")}</table></section>`;
 }
